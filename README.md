@@ -4,8 +4,9 @@ This repository contains the code accompanying the manuscript **"A Soft-Sensing-
 
 The overall framework combines:
 
-1. **Soft sensing of bottom-hole information**, using drilling and seismic-related inputs to estimate variables needed by the final predictor.
-2. **Seismic-guided ahead-of-bit prediction**, where a Preformer-based sequence model predicts pore pressure while being constrained by a seismic-derived low-frequency pressure trend.
+1. **Data preprocessing**, including outlier removal, interpolation, and signal smoothing for raw well logs and related measurements.
+2. **Soft sensing of bottom-hole information**, using drilling and seismic-related inputs to estimate variables needed by the final predictor.
+3. **Seismic-guided ahead-of-bit prediction**, where a Preformer-based sequence model predicts pore pressure while being constrained by a seismic-derived low-frequency pressure trend.
 
 At a unified depth interval of **0.1524 m (0.5 ft)**, the prediction model uses a **40-sample input window** (about **6.1 m** behind the bit) to generate a **20-sample output window** (about **3.0 m** ahead of the bit).
 
@@ -13,6 +14,8 @@ At a unified depth interval of **0.1524 m (0.5 ft)**, the prediction model uses 
 
 ```text
 .
+|-- preprocessing/
+|   `-- data-analysis.py
 |-- soft sensing/
 |   `-- main.py
 `-- prediction/
@@ -30,7 +33,28 @@ At a unified depth interval of **0.1524 m (0.5 ft)**, the prediction model uses 
 
 ## What Each Part Corresponds to in the Paper
 
-### 1. `soft sensing/`
+### 1. `preprocessing/`
+
+This folder contains the data preprocessing code used to clean and smooth raw well data before soft sensing and final pore pressure prediction.
+
+- `data-analysis.py`: preprocessing and analysis script.
+- The active preprocessing pipeline in this script performs:
+  - global outlier removal using a three-sigma rule,
+  - local window-based outlier screening,
+  - linear interpolation for missing points introduced during filtering,
+  - wavelet decomposition and reconstruction (`db4`, level 2),
+  - Savitzky-Golay smoothing on the low-frequency approximation component.
+
+The script also contains additional commented research utilities for:
+
+- file encoding detection,
+- depth matching and interpolation,
+- cross-plot analysis,
+- Eaton-method pore pressure calculation,
+- normal compaction trend analysis,
+- lithology-depth matching.
+
+### 2. `soft sensing/`
 
 This folder contains the soft-sensing component used in the paper pipeline.
 
@@ -44,7 +68,7 @@ This folder contains the soft-sensing component used in the paper pipeline.
 
 In the current codebase, the soft-sensing script includes models such as `RidgeCV`, `GradientBoostingRegressor`, `XGBRegressor`, and sequence-aware experts. It also saves prediction curves and serialized model bundles for later use.
 
-### 2. `prediction/`
+### 3. `prediction/`
 
 This folder contains the final ahead-of-bit pore pressure prediction module.
 
@@ -67,7 +91,9 @@ The paper workflow can be summarized as follows:
 
 1. **Data preprocessing**
    - Align drilling, logging, and seismic-derived attributes by depth.
-   - Apply preprocessing such as local correction and wavelet-based filtering to suppress noise while preserving depth-dependent trends.
+   - Remove abnormal values with global and local statistical filtering.
+   - Recover filtered samples by interpolation.
+   - Apply wavelet-based smoothing to suppress high-frequency noise while preserving depth-dependent trends.
 
 2. **Soft sensing of bottom-hole information**
    - Estimate bottom-hole variables from available measurements.
@@ -81,6 +107,12 @@ The paper workflow can be summarized as follows:
 ## Data
 
 The study uses offshore well data from the **Western Australian Petroleum and Geothermal Information Management System (WAPIMS)**. According to the manuscript, five wells (A-E) are used in the study.
+
+Raw or intermediate well-log preprocessing can be handled through:
+
+```text
+preprocessing/data-analysis.py
+```
 
 Processed example data for the prediction module are provided under:
 
@@ -98,6 +130,8 @@ The code is research code and was not packaged as a single installable library. 
 - NumPy
 - pandas
 - SciPy
+- chardet
+- PyWavelets
 - scikit-learn
 - XGBoost
 - matplotlib
@@ -106,6 +140,35 @@ The code is research code and was not packaged as a single installable library. 
 - TensorFlow / Keras
 
 ## How to Run
+
+### Data preprocessing
+
+The preprocessing entry point is:
+
+```text
+preprocessing/data-analysis.py
+```
+
+This script currently expects a local input CSV such as:
+
+```text
+nimblefoot.csv
+```
+
+and processes each log channel column-by-column using outlier filtering, interpolation, and wavelet-based smoothing.
+
+Before running it, please check and adjust:
+
+- the input CSV filename,
+- any plot export path such as `filepath`,
+- the final CSV export line if you want to save the preprocessed dataset.
+
+Then run:
+
+```bash
+cd preprocessing
+python data-analysis.py
+```
 
 ### Soft sensing
 
@@ -152,6 +215,7 @@ python run.py --is_training 0 --model Preformer --data custom --root_path ./data
 
 Please note:
 
+- the preprocessing script is still organized as a research script and contains several commented experimental utilities in addition to the active preprocessing pipeline;
 - `run.py` contains default arguments that may need to be adjusted for your local data file, checkpoint path, and experiment setting.
 - Some parts of `exp/exp_main.py` retain commented experimental code paths from the original study.
 
@@ -170,9 +234,9 @@ The manuscript further states that, relative to the strongest baseline (`Transfo
 
 ## Notes
 
-- This repository is organized to reflect the two main technical parts of the paper: **soft sensing** and **ahead-of-bit pore pressure prediction**.
+- This repository is organized to reflect the three main technical parts of the paper workflow: **data preprocessing**, **soft sensing**, and **ahead-of-bit pore pressure prediction**.
 - The current code includes research artifacts such as intermediate results, pretrained models, and local-path settings from the original experimental environment.
-- If this repository is uploaded for peer review or reproducibility, it is recommended to keep this `README.md` together with the processed data files and the two main code folders.
+- If this repository is uploaded for peer review or reproducibility, it is recommended to keep this `README.md` together with the preprocessing script, processed data files, and the two modeling code folders.
 
 ## Citation
 
